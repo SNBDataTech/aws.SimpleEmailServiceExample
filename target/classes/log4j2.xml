@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration xmlns="http://logging.apache.org/log4j/2.0/config">
+
+	<Properties>
+		<Property name="LOG_PATH">C:/temp/aws/ses/logs/</Property>
+        <Property name="INFO_PATTERN"> [%-5p] %d [%t] %c{36}:%L - %m %n</Property>
+        <Property name="ERROR_PATTERN">[%-5p] %d [**] An Event Occurred In Class:'%c{36}:%L' [*****] Message Response: %m [**] %n</Property>
+    </Properties>
+
+    <Appenders>
+		<Console name="console-log" target="SYSTEM_OUT">
+            <PatternLayout pattern="${INFO_PATTERN}"/>
+        </Console>
+
+		<RollingFile name="error-log" fileName="${LOG_PATH}/current.log" filePattern="${LOG_PATH}/expired_%d{yyyyMMdd}-%i.log" >
+			<PatternLayout>
+				<pattern>${ERROR_PATTERN}</pattern>
+			</PatternLayout>
+			<Policies>
+				<TimeBasedTriggeringPolicy />
+				<SizeBasedTriggeringPolicy size="100 MB" />
+			</Policies>
+			<DefaultRolloverStrategy max="30"/>
+		</RollingFile>
+	</Appenders>
+
+	<Loggers>
+		<Logger name="root" level="debug" additivity="false">
+			<appender-ref ref="error-log" level="warn"/>
+            <appender-ref ref="console-log" level="info"/>
+		</Logger>
+
+		<Root level="info" additivity="false">
+            <appender-ref ref="error-log" level="warn"/>
+            <appender-ref ref="console-log" level="info"/>
+        </Root>
+	</Loggers>
+</Configuration>

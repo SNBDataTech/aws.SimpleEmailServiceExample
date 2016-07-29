@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="
+            http://www.springframework.org/schema/beans
+            http://www.springframework.org/schema/beans/spring-beans.xsd
+            http://www.springframework.org/schema/context
+			http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <!-- Setup Configuration to allow Annotations -->
+    <context:annotation-config/>
+
+    <!-- Configure Packages to Scan -->
+    <context:component-scan base-package="com.snbdatatech.aws.ses" />
+
+    <!-- Load in Application Property Files -->
+    <bean 	id="appProperties"
+             class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+
+        <property name="ignoreResourceNotFound" value="false"/>
+        <property name="locations">
+            <set>
+                <!-- Set Path to Property Files -->
+                <value>classpath*:properties/app.properties</value>
+            </set>
+        </property>
+    </bean>
+
+    <!-- Definition for Start Up Controller -->
+    <bean	id="appController" class="com.snbdatatech.aws.ses.controller.AwsSesController"></bean>
+</beans>
