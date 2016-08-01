@@ -17,8 +17,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class AwsSesServiceImpl implements AwsSesService {
 
-    @Value("${aws.ses.fromAddress}")
-    private String fromAddress;
+    @Value("${aws.ses.defaultFromAddress}")
+    private String defaultFromAddress;
 
     @Value("${aws.ses.region}")
     private String region;
@@ -31,6 +31,8 @@ public class AwsSesServiceImpl implements AwsSesService {
 
     /**
      * Send email using AWS SES service
+     *
+     * @param fromAddress String of the address the email is coming from
      * @param toAddresses String array of addresses to send to
      * @param ccAddresses String array of cc addresses to send to
      * @param bccAddresses String array of bcc addresses to send to
@@ -38,7 +40,59 @@ public class AwsSesServiceImpl implements AwsSesService {
      * @param content the content of the message
      * @return true if the email was sent successfully
      */
-    public boolean sendEmail(String[] toAddresses, String[] ccAddresses, String[] bccAddresses, String subject, String content) {
+    public boolean sendEmail(String fromAddress, String[] toAddresses, String[] ccAddresses, String[] bccAddresses, String subject, String content) {
+
+        // Verify the from address is set
+        if ((fromAddress == null) || (fromAddress.equals(""))) {
+            fromAddress = this.defaultFromAddress;
+        }
+
+        // Create the destination
+        Destination destination = this.createEmailDestination(toAddresses, ccAddresses, bccAddresses);
+
+        // Create the message
+        Message message = this.createEmailMessage(subject, content);
+
+        // Build the Email request
+        SendEmailRequest request = new SendEmailRequest().withSource(fromAddress).withDestination(destination).withMessage(message);
+
+        try
+        {
+            // Create an AWS SES client
+            AmazonSimpleEmailServiceClient client = new AmazonSimpleEmailServiceClient(this.configurationService.getAwsCredentials());
+
+            // Create and set the needed AWS region
+            Region REGION = Region.getRegion(Regions.valueOf(this.region));
+            client.setRegion(REGION);
+
+            // Send the email and get the result.
+            SendEmailResult result = client.sendEmail(request);
+
+            // Log the Send Result - MessageId
+            logger.error(result);
+
+            // Email request was successful
+            return true;
+        }
+        catch (Exception ex)
+        {
+            // Log request exception
+            this.logger.error(ex.getMessage());
+
+            // Failed to send email request
+            return false;
+        }
+    }
+
+    /**
+     * Create a destination for the email
+     *
+     * @param toAddresses String array of addresses to send to
+     * @param ccAddresses String array of cc addresses to send to
+     * @param bccAddresses String array of bcc addresses to send to
+     * @return the destination of the email
+     */
+    private Destination createEmailDestination(String[] toAddresses, String[] ccAddresses, String[] bccAddresses) {
 
         // Create destination for recipients
         Destination destination = new Destination().withToAddresses(toAddresses);
@@ -57,6 +111,19 @@ public class AwsSesServiceImpl implements AwsSesService {
             destination.withBccAddresses(bccAddresses);
         }
 
+        // Return the message destination
+        return destination;
+    }
+
+    /**
+     * Create a message for the email
+     *
+     * @param subject the subject of the email
+     * @param content the content of the email
+     * @return the message of the email
+     */
+    private Message createEmailMessage(String subject, String content) {
+
         // Create the subject of the message
         Content subjectContent = new Content().withData(subject);
 
@@ -64,34 +131,7 @@ public class AwsSesServiceImpl implements AwsSesService {
         Content bodyContent = new Content().withData(content);
         Body body = new Body().withText(bodyContent);
 
-        // Create a message with the specified subject and body.
-        Message message = new Message().withSubject(subjectContent).withBody(body);
-
-        // Build the Email request
-        SendEmailRequest request = new SendEmailRequest().withSource(this.fromAddress).withDestination(destination).withMessage(message);
-
-        try
-        {
-            // Create an AWS SES client
-            AmazonSimpleEmailServiceClient client = new AmazonSimpleEmailServiceClient(this.configurationService.getAwsCredentials());
-
-            // Create and set the needed AWS region
-            Region REGION = Region.getRegion(Regions.valueOf(this.region));
-            client.setRegion(REGION);
-
-            // Send the email.
-            client.sendEmail(request);
-
-            // Email request was successful
-            return true;
-        }
-        catch (Exception ex)
-        {
-            // Log request exception
-            this.logger.error(ex.getMessage());
-
-            // Failed to send email request
-            return false;
-        }
+        // Create a message using the subject and body.
+        return new Message().withSubject(subjectContent).withBody(body);
     }
 }
