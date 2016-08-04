@@ -11,6 +11,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * Created by sblindt on 7/29/2016.
  */
@@ -26,8 +29,19 @@ public class AwsSesServiceImpl implements AwsSesService {
     @Autowired
     private AwsConfigurationService configurationService;
 
+    private AmazonSimpleEmailServiceClient client;
+
     // Create logger
     private final Logger logger = LogManager.getLogger(AwsSesServiceImpl.class);
+
+    /**
+     * Automatically called on bean creation.
+     */
+    public void init() {
+
+        // Create an AWS SES client
+        this.client = new AmazonSimpleEmailServiceClient(this.configurationService.getAwsCredentials());
+    }
 
     /**
      * Send email using AWS SES service
@@ -54,19 +68,21 @@ public class AwsSesServiceImpl implements AwsSesService {
         Message message = this.createEmailMessage(subject, content);
 
         // Build the Email request
-        SendEmailRequest request = new SendEmailRequest().withSource(fromAddress).withDestination(destination).withMessage(message);
+        SendEmailRequest request = new SendEmailRequest()
+                .withSource(fromAddress)
+                .withDestination(destination)
+                .withMessage(message);
 
         try
         {
-            // Create an AWS SES client
-            AmazonSimpleEmailServiceClient client = new AmazonSimpleEmailServiceClient(this.configurationService.getAwsCredentials());
+
 
             // Create and set the needed AWS region
             Region REGION = Region.getRegion(Regions.valueOf(this.region));
-            client.setRegion(REGION);
+            this.client.setRegion(REGION);
 
             // Send the email and get the result.
-            SendEmailResult result = client.sendEmail(request);
+            SendEmailResult result = this.client.sendEmail(request);
 
             // Log the Send Result - MessageId
             logger.error(result);
