@@ -20,16 +20,14 @@ import java.util.List;
 @Service
 public class AwsSesServiceImpl implements AwsSesService {
 
-    @Value("${aws.ses.defaultFromAddress}")
-    private String defaultFromAddress;
-
     @Value("${aws.ses.region}")
     private String region;
 
     @Autowired
     private AwsConfigurationService configurationService;
 
-    private AmazonSimpleEmailServiceClient client;
+    private AmazonSimpleEmailService client;
+    private List<String> verifiedIdentities;
 
     // Create logger
     private final Logger logger = LogManager.getLogger(AwsSesServiceImpl.class);
@@ -41,6 +39,13 @@ public class AwsSesServiceImpl implements AwsSesService {
 
         // Create an AWS SES client
         this.client = new AmazonSimpleEmailServiceClient(this.configurationService.getAwsCredentials());
+
+        // Create and set the needed AWS region
+        Region REGION = Region.getRegion(Regions.valueOf(this.region));
+        this.client.setRegion(REGION);
+
+        // Get the verified identities - Email addresses and domains allowed to use SES endpoint
+        this.verifiedIdentities = this.client.listIdentities().getIdentities();
     }
 
     /**
@@ -57,47 +62,79 @@ public class AwsSesServiceImpl implements AwsSesService {
     public boolean sendEmail(String fromAddress, String[] toAddresses, String[] ccAddresses, String[] bccAddresses, String subject, String content) {
 
         // Verify the from address is set
-        if ((fromAddress == null) || (fromAddress.equals(""))) {
-            fromAddress = this.defaultFromAddress;
+        if ((fromAddress != null) && (!fromAddress.equals(""))) {
+
+            // Determine if the from address is verified
+            if (this.fromAddressIsVerified(fromAddress)) {
+
+                // Create the destination
+                Destination destination = this.createEmailDestination(toAddresses, ccAddresses, bccAddresses);
+
+                // Create the message
+                Message message = this.createEmailMessage(subject, content);
+
+                // Build the Email request
+                SendEmailRequest request = new SendEmailRequest()
+                        .withSource(fromAddress)
+                        .withDestination(destination)
+                        .withMessage(message);
+
+                try {
+
+                    // Send the email and get the result.
+                    SendEmailResult result = this.client.sendEmail(request);
+
+                    // Log the Send Result - MessageId
+                    logger.error(result);
+
+                    // Email request was successful
+                    return true;
+
+                } catch (Exception ex) {
+
+                    // Log request exception
+                    this.logger.error(ex.getMessage());
+
+                    // Failed to send email request
+                    return false;
+                }
+            }
+
+            // Log failed address attempt
+            this.logger.error("The given FROM ADDRESS [" + fromAddress + "] has not been verified with AWS SES. Email from addresses must be verified with SES before they can be used.");
+
+        } else {
+
+            // Log failed address attempt
+            this.logger.error("The given FROM ADDRESS was not set, or was left empty, therefore the email service will not attempt to send emails.");
         }
 
-        // Create the destination
-        Destination destination = this.createEmailDestination(toAddresses, ccAddresses, bccAddresses);
+        // Failed to send emails
+        return false;
+    }
 
-        // Create the message
-        Message message = this.createEmailMessage(subject, content);
+    /**
+     * Verify the given from address is verified with SES
+     *
+     * @param fromAddress the from address of the email
+     * @return true if the address is verified with SES
+     */
+    public boolean fromAddressIsVerified(String fromAddress) {
 
-        // Build the Email request
-        SendEmailRequest request = new SendEmailRequest()
-                .withSource(fromAddress)
-                .withDestination(destination)
-                .withMessage(message);
+        // Cycle through verified identities from AWS
+        for (String identity : this.verifiedIdentities) {
 
-        try
-        {
+            // Parse the main domain from the email address even if it includes subdomains
+            String domain = fromAddress.substring(fromAddress.indexOf('@') + 1).replaceAll(".*\\.(?=.*\\.)", "");
 
-
-            // Create and set the needed AWS region
-            Region REGION = Region.getRegion(Regions.valueOf(this.region));
-            this.client.setRegion(REGION);
-
-            // Send the email and get the result.
-            SendEmailResult result = this.client.sendEmail(request);
-
-            // Log the Send Result - MessageId
-            logger.error(result);
-
-            // Email request was successful
-            return true;
+            // Check if identity has been verified
+            if ((identity.equals(domain)) || (identity.equals(fromAddress))) {
+                return true;
+            }
         }
-        catch (Exception ex)
-        {
-            // Log request exception
-            this.logger.error(ex.getMessage());
 
-            // Failed to send email request
-            return false;
-        }
+        // Identity not verified
+        return false;
     }
 
     /**

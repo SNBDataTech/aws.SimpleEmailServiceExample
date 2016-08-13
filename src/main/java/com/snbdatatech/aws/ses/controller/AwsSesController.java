@@ -17,10 +17,8 @@ public class AwsSesController {
     private final Logger logger = LogManager.getLogger(AwsSesController.class);
 
     public boolean processSendEmailRequest() {
-        //return this.awsSesService.sendEmail("from@example.com", new String[]{"to@example.com"},
-        //        new String[]{"cc@example.com"}, new String[]{"bcc@example.com"}, "Test From Scott JAVA SDK", "This is a test from Scott using the Java AWS SDK!!!");
 
-        return this.awsSesService.sendEmail("sblindt@snbdatatech.com", new String[]{"sblindt@snbdatatech.com"},
-                new String[]{null}, new String[]{null}, "Test From Scott JAVA SDK", "This is a test from Scott using the Java AWS SDK!!!");
+        return this.awsSesService.sendEmail("from@example.com", new String[]{"to@example.com"},
+                new String[]{"cc@example.com"}, new String[]{"bcc@example.com"}, "Test From JAVA SDK", "This is a test using the Java AWS SDK!!!");
     }
 }
